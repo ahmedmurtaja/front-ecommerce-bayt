@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import styled from 'styled-components';
+import React, { useEffect } from 'react';
+import { enqueueSnackbar } from 'notistack';
+import { connect } from 'react-redux';
+import axios, { AxiosError } from 'axios';
 import {
   Skeleton,
   Grid,
@@ -15,6 +16,9 @@ import {
   SelectChangeEvent,
   Pagination,
 } from '@mui/material';
+import styled from 'styled-components';
+import { RootState } from './store';
+import { setProducts, setCategories } from '../redux/ProductSlice';
 
 const Container = styled.div`
   padding: 20px;
@@ -34,45 +38,64 @@ const StyledCard = styled(Card)`
   }
 `;
 
-const ProductList: React.FC = () => {
-  const [loading, setLoading] = useState<boolean>(true);
+interface Product {
+  id: number;
+  name: string;
+  price: number;
+  category: string;
+  image: string;
+}
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [sortOption, setSortOption] = useState<'name' | 'price'>('name');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [totalPages, setTotalPages] = useState<number>(1);
+interface ProductListProps {
+  products: Product[];
+  categories: string[];
+  setProducts: (products: Product[]) => void;
+  setCategories: (categories: string[]) => void;
+}
 
-  interface Product {
-    id: number;
-    name: string;
-    price: number;
-    category: string;
-    image: string;
-  }
+const ProductList: React.FC<ProductListProps> = ({
+  products,
+  categories,
+  setProducts,
+  setCategories,
+}) => {
+  const [loading, setLoading] = React.useState<boolean>(true);
+  const [sortOption, setSortOption] = React.useState<'name' | 'price'>('name');
+  const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('asc');
+  const [categoryFilter, setCategoryFilter] = React.useState<string>('all');
+  const [currentPage, setCurrentPage] = React.useState<number>(1);
+  const [totalPages, setTotalPages] = React.useState<number>(1);
 
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
-      const { data } = await axios.get(
-        `https://bayt.onrender.com/api/v1/products?page=${currentPage}&category=${categoryFilter}&sort=${sortOption}&order=${sortOrder}`
-      );
-      setProducts(data.data.products.rows);
-      setTotalPages(data.data.products.totalPages);
-    };
-    const fetchCategories = async () => {
-      const { data } = await axios.get(
-        `https://bayt.onrender.com/api/v1/products/categories`
-      );
-      console.log(data.data.categories);
-      setCategories(data.data.categories);
+      try {
+        const { data } = await axios.get(
+          `https://bayt.onrender.com/api/v1/products?page=${currentPage}&category=${categoryFilter}&sort=${sortOption}&order=${sortOrder}`
+        );
+        setProducts(data.data.products.rows);
+        setTotalPages(data.data.products.totalPages);
+      } catch (error) {
+        const err = error as AxiosError;
+        enqueueSnackbar(`Error fetching products ${err.message} `, { variant: 'error' });
+      }
       setLoading(false);
     };
+
+    const fetchCategories = async () => {
+      try {
+        const { data } = await axios.get(
+          `https://bayt.onrender.com/api/v1/products/categories`
+        );
+        setCategories(data.data.categories);
+      } catch (error) {
+        enqueueSnackbar('Error fetching categories', { variant: 'error' });
+      }
+    };
+
     fetchCategories();
     fetchProducts();
-  }, [sortOption, sortOrder, categoryFilter, currentPage]);
+  }, [currentPage, categoryFilter, sortOption, sortOrder, setProducts, setCategories]);
 
   const handleSortChange = (
     event: SelectChangeEvent<string>
@@ -101,8 +124,8 @@ const ProductList: React.FC = () => {
 
   return (
     <Container>
-       <ControlGrid container spacing={2}>
-       <Grid item xs={12} sm={6} md={4}>
+      <ControlGrid container spacing={2}>
+        <Grid item xs={12} sm={6} md={4}>
           <FormControl fullWidth>
             <InputLabel>Sort By</InputLabel>
             <Select value={sortOption} onChange={handleSortChange}>
@@ -133,46 +156,45 @@ const ProductList: React.FC = () => {
             </Select>
           </FormControl>
         </Grid>
-       </ControlGrid>
+      </ControlGrid>
       
-     
-       <Grid container spacing={2}>
+      <Grid container spacing={2}>
         {loading &&
           Array.from({ length: 9 }).map((_, index) => (
-      <Grid item key={index} xs={12} sm={6} md={4}>
-        <StyledCard>
-          <Skeleton variant="rectangular" height={200} width={500} />
-          <CardContent>
-            <Skeleton height={24} width="80%" />
-            <Skeleton height={18} width="60%" />
-            <Skeleton height={18} width="40%" />
-          </CardContent>
-        </StyledCard>
-      </Grid>
-    ))
-          }
-        {!loading && products.map((product: Product) => (
-          <Grid item key={product.id} xs={12} sm={6} md={4}>
-            <StyledCard>
-              <CardMedia
-                component="img"
-                width="500"
-                sx={{maxHeight: 200}}
-                image={product.image + '?v=' + product.id}
-                alt={product.name}
-              />
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  {product.name}
-                </Typography>
-                <Typography variant="subtitle1">
-                  Price: ${product.price}
-                </Typography>
-                <Typography variant="body2">Category: {product.category}</Typography>
-              </CardContent>
-            </StyledCard>
-          </Grid>
-        ))}
+            <Grid item key={index} xs={12} sm={6} md={4}>
+              <StyledCard>
+                <Skeleton variant="rectangular" height={200} width={500} />
+                <CardContent>
+                  <Skeleton height={24} width="80%" />
+                  <Skeleton height={18} width="60%" />
+                  <Skeleton height={18} width="40%" />
+                </CardContent>
+              </StyledCard>
+            </Grid>
+          ))}
+        {!loading &&
+          products.map((product: Product) => (
+            <Grid item key={product.id} xs={12} sm={6} md={4}>
+              <StyledCard>
+                <CardMedia
+                  component="img"
+                  width="500"
+                  sx={{ maxHeight: 200 }}
+                  image={product.image + '?v=' + product.id}
+                  alt={product.name}
+                />
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    {product.name}
+                  </Typography>
+                  <Typography variant="subtitle1">
+                    Price: ${product.price}
+                  </Typography>
+                  <Typography variant="body2">Category: {product.category}</Typography>
+                </CardContent>
+              </StyledCard>
+            </Grid>
+          ))}
       </Grid>
       <Pagination
         count={totalPages}
@@ -185,4 +207,14 @@ const ProductList: React.FC = () => {
   );
 };
 
-export default ProductList;
+const mapStateToProps = (state: RootState) => ({
+  products: state.products.products,
+  categories: state.products.categories,
+});
+
+const mapDispatchToProps = {
+  setProducts,
+  setCategories,
+};
+
+export default connect(mapStateToProps, mapDispatchToProps)(ProductList);
