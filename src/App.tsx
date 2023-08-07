@@ -8,12 +8,17 @@ function App() {
       style={{
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
+        margin: '0 auto',
         minHeight: '100vh', 
       }}
     >
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h4" gutterBottom sx={
+        {
+          textAlign: 'center',
+          alignSelf: 'center',
+          marginTop: '20px',
+        }
+      }>
         Bayt E-Commerce
       </Typography>
       <ProductList />

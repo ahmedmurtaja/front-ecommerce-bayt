@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import styled from 'styled-components';
 import {
+  Skeleton,
   Grid,
   FormControl,
   InputLabel,
@@ -34,6 +35,8 @@ const StyledCard = styled(Card)`
 `;
 
 const ProductList: React.FC = () => {
+  const [loading, setLoading] = useState<boolean>(true);
+
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [sortOption, setSortOption] = useState<'name' | 'price'>('name');
@@ -52,6 +55,7 @@ const ProductList: React.FC = () => {
 
   useEffect(() => {
     const fetchProducts = async () => {
+      setLoading(true);
       const { data } = await axios.get(
         `https://bayt.onrender.com/api/v1/products?page=${currentPage}&category=${categoryFilter}&sort=${sortOption}&order=${sortOrder}`
       );
@@ -64,6 +68,7 @@ const ProductList: React.FC = () => {
       );
       console.log(data.data.categories);
       setCategories(data.data.categories);
+      setLoading(false);
     };
     fetchCategories();
     fetchProducts();
@@ -132,12 +137,27 @@ const ProductList: React.FC = () => {
       
      
        <Grid container spacing={2}>
-        {products.map((product: Product) => (
+        {loading &&
+          Array.from({ length: 9 }).map((_, index) => (
+      <Grid item key={index} xs={12} sm={6} md={4}>
+        <StyledCard>
+          <Skeleton variant="rectangular" height={200} width={500} />
+          <CardContent>
+            <Skeleton height={24} width="80%" />
+            <Skeleton height={18} width="60%" />
+            <Skeleton height={18} width="40%" />
+          </CardContent>
+        </StyledCard>
+      </Grid>
+    ))
+          }
+        {!loading && products.map((product: Product) => (
           <Grid item key={product.id} xs={12} sm={6} md={4}>
             <StyledCard>
               <CardMedia
                 component="img"
-                height="200"
+                width="500"
+                sx={{maxHeight: 200}}
                 image={product.image + '?v=' + product.id}
                 alt={product.name}
               />
