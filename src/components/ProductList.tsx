@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect } from 'react';
 import { enqueueSnackbar } from 'notistack';
 import { connect } from 'react-redux';
@@ -19,6 +20,21 @@ import {
 import styled from 'styled-components';
 import { RootState } from './store';
 import { setProducts, setCategories } from '../redux/ProductSlice';
+
+
+const isItemExpired = (item:any) => {
+  return Date.now() > item.expiration;
+};
+
+const storeItem = (key:string, value:any, expiration:number) => {
+  const item = { value, expiration };
+  localStorage.setItem(key, JSON.stringify(item));
+};
+
+const retrieveItem = (key:string) => {
+  const item = localStorage.getItem(key);
+  return item ? JSON.parse(item) : null;
+};
 
 const Container = styled.div`
   padding: 20px;
@@ -69,16 +85,30 @@ const ProductList: React.FC<ProductListProps> = ({
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
+
       try {
-        const { data } = await axios.get(
-          `https://bayt.onrender.com/api/v1/products?page=${currentPage}&category=${categoryFilter}&sort=${sortOption}&order=${sortOrder}`
-        );
-        setProducts(data.data.products.rows);
-        setTotalPages(data.data.products.totalPages);
+        const cacheKey = `products-${currentPage}-${categoryFilter}-${sortOption}-${sortOrder}`;
+        const cachedData = retrieveItem(cacheKey);
+
+        if (cachedData && !isItemExpired(cachedData)) {
+          setProducts(cachedData.value);
+          setTotalPages(cachedData.totalPages);
+        } else {
+          const { data } = await axios.get(
+            `https://bayt.onrender.com/api/v1/products?page=${currentPage}&category=${categoryFilter}&sort=${sortOption}&order=${sortOrder}`
+          );
+
+          setProducts(data.data.products.rows);
+          setTotalPages(data.data.products.totalPages);
+
+          const expiration = Date.now() + 600000; // 10 minutes expiration
+          storeItem(cacheKey, data.data.products.rows, expiration);
+        }
       } catch (error) {
         const err = error as AxiosError;
         enqueueSnackbar(`Error fetching products ${err.message} `, { variant: 'error' });
       }
+
       setLoading(false);
     };
 
